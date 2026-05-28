@@ -83,16 +83,29 @@ Tries every PIN in the range over a single persistent BLE connection. A 62-secon
 **Example output:**
 
 ```
-Starting brute-force: 0000 → 9999  (10000 combinations)
+$ ./tdl110_pin.py --address F884B51A-0619-9144-C4EE-92CA15DA6767 --brute --start 0 --end 10
+Starting brute-force: 0000 → 0010  (11 combinations)
 
   Connected.
 
-[34/10000] Trying PIN: 0033
-  Response: 1e  →  ❌ Rejected
-[35/10000] Trying PIN: 0034
-  Response: 19  →  ✅ ACCEPTED
+[1/11] Trying PIN: 0000
+  Response: 16  →  ❌ Rejected, retry
+[2/11] Trying PIN: 0001
+  Response: 16  →  ❌ Rejected, retry
+[3/11] Trying PIN: 0002
+  Response: 16  →  ❌ Rejected, retry
+[4/11] Trying PIN: 0003
+  Response: 1d  →  ❌ Rejected, retry in 5 seconds
+[5/11] Trying PIN: 0004
+  Response: 1d  →  ❌ Rejected, retry in 5 seconds
+[6/11] Trying PIN: 0005
+  Response: 1d  →  ❌ Rejected, retry in 5 seconds
+[7/11] Trying PIN: 0006
+  Response: 1e  →  ❌ Rejected, retry in 60 seconds
+[8/11] Trying PIN: 0007
+  Response: 19  →  ✅ Accepted
 
-🎉  PIN FOUND: 0034
+🎉  PIN FOUND: 0007
 ```
 
 Exit code `0` if the PIN is found, `1` if the range is exhausted without a match.
@@ -101,4 +114,3 @@ Exit code `0` if the PIN is found, `1` if the range is exhausted without a match
 
 - On macOS, CoreBluetooth manages the BLE connection implicitly — no explicit pairing step is needed.
 - The brute-forcer reuses a single connection across all attempts rather than reconnecting per PIN.
-- The device responds with `0x1e` for an invalid PIN and any other byte value for a valid one.
