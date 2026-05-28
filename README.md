@@ -13,9 +13,18 @@ Derived from Wireshark capture:
 | Direction | Handle | Characteristic UUID | Payload |
 |-----------|--------|---------------------|---------|
 | Write | `0x0037` | `...85e` | PIN as raw bytes — `1234` → `01 02 03 04` |
-| Notify | `0x001e` | `...851` | `0x1e` = wrong PIN, anything else = accepted |
+| Notify | `0x001e` | `...851` | Response code (see below) |
 
-There is no documentation about this protocol. I initially tried with less than a 60-second delay between attempts, but after noticing that the official app always waits 60 seconds after the first few failures, I settled on 62 seconds — and it works reliably. Worst case, you wait 7.2 days to find your PIN. That will put a dent in the battery, but at least you get to use your device.
+**Notification response codes:**
+
+| Byte | Meaning |
+|------|---------|
+| `0x19` | PIN accepted |
+| `0x16` | Wrong PIN — retry immediately |
+| `0x1d` | Wrong PIN — wait 5 seconds before retrying |
+| `0x1e` | Wrong PIN — wait 60 seconds before retrying |
+
+There is no documentation about this protocol. The device tells you how long to wait via the response code — the script respects these delays automatically (5 seconds for `0x1d`, 60 seconds for `0x1e`). Worst case, you wait 7.2 days to find your PIN. That will put a dent in the battery, but at least you get to use your device.
 
 ## Requirements
 
